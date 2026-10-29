@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<!--
+SETUP (10 min, all free)
+1. console.firebase.google.com > Add project > Build > Firestore Database > Create (production mode).
+2. Firestore > Rules > paste this and Publish:
+   rules_version='2'; service cloud.firestore { match /databases/{d}/documents { match /votes/{id} {
+     allow read: if true;
+     allow create: if request.resource.data.keys().hasOnly(['name','t'])
+       && request.resource.data.name is string
+       && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 40;
+     allow update, delete: if false; }
+     match /devices/{id} { allow create: if request.resource.data.keys().hasOnly(['t']); } } }
+   (Rules changed in v2: if you already published v1 rules, publish these again.)
+3. Project settings > Your apps > Web (</>) > copy the config values into CFG below.
+4. Put this file in a GitHub repo as index.html > Settings > Pages > Deploy from branch (main).
+5. Open https://YOU.github.io/REPO/#host  -> QR code + live results. Print the QR.
+Until CFG is filled in, the page runs in DEMO mode (local only, with sample votes) so you can preview it.
+-->
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12051c">
+<title>Costume Contest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--o:#ff7a00;--p:#8b3dff;--bg:#12051c;--ink:#fff4e6;--mut:#b9a5d6}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html,body{margin:0}
+body{min-height:100vh;display:grid;place-items:center;padding:max(18px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom));font-family:Fredoka,system-ui,sans-serif;color:var(--ink);overflow-x:hidden;
+background:radial-gradient(circle at 82% 7%,#fff3c9 0 2.6%,#f4c46a 3% 4.4%,rgba(244,196,106,.18) 5% 11%,transparent 12%),radial-gradient(ellipse at 50% 115%,#4d1a80,transparent 62%),linear-gradient(#0a0213,var(--bg)) fixed}
+.bat{position:fixed;left:-60px;top:var(--y);font-size:var(--s);opacity:.65;pointer-events:none;animation:fly var(--d) linear var(--dl) infinite}
+@keyframes fly{25%{transform:translate(30vw,-34px)}50%{transform:translate(60vw,12px)}75%{transform:translate(90vw,-26px)}to{transform:translate(120vw,0)}}
+.card{width:100%;max-width:440px;padding:28px 24px 26px;text-align:center;border-radius:28px;background:rgba(32,12,52,.72);backdrop-filter:blur(10px);border:2px solid rgba(255,122,0,.55);box-shadow:0 0 0 6px rgba(139,61,255,.14),0 20px 70px rgba(139,61,255,.35),inset 0 0 40px rgba(255,122,0,.08);animation:rise .7s cubic-bezier(.2,.9,.3,1.2) both}
+.card.wide{max-width:600px;text-align:left}
+@keyframes rise{from{opacity:0;transform:translateY(30px) scale(.95)}}
+#logo,#mini{width:112px;margin:-62px auto 6px;filter:drop-shadow(0 0 22px rgba(255,122,0,.75));animation:bob 3.4s ease-in-out infinite}
+#mini{cursor:pointer;width:96px;margin:4px auto 10px}
+@keyframes bob{50%{transform:translateY(-7px) rotate(3deg)}}
+h1{font-family:Creepster,cursive;font-weight:400;margin:6px 0 4px;font-size:clamp(46px,15vw,66px);line-height:.95;letter-spacing:.03em;color:var(--o);text-shadow:0 3px 0 #5b1fa8,0 0 26px rgba(255,122,0,.6);animation:flick 5s infinite}
+h1.sm{font-size:42px;text-align:center}
+@keyframes flick{0%,92%,96%,100%{opacity:1}94%{opacity:.55}98%{opacity:.8}}
+.sub{margin:8px 0 22px;color:var(--mut);line-height:1.45}
+label{display:block;text-align:left;font-weight:600;margin:0 0 8px 4px}
+input[type=text]{width:100%;font:inherit;font-size:1.1rem;color:var(--ink);padding:16px 18px;border-radius:16px;border:2px solid #5b2a8f;background:rgba(10,2,19,.55);outline:0;transition:border-color .2s,box-shadow .2s}
+input[type=text]::placeholder{color:#7f6aa3}
+input[type=text]:focus{border-color:var(--o);box-shadow:0 0 0 4px rgba(255,122,0,.25),0 0 24px rgba(255,122,0,.3)}
+.meta{display:flex;justify-content:space-between;min-height:24px;padding:6px 6px 0;font-size:.85rem;color:var(--mut)}#err{color:#ff9db1}
+button{position:relative;overflow:hidden;width:100%;margin-top:10px;padding:16px;border:0;border-radius:16px;cursor:pointer;font:600 1.2rem Fredoka,system-ui,sans-serif;color:#2a0a3d;background:linear-gradient(180deg,#ffa23a,var(--o) 60%,#e45e00);box-shadow:0 6px 0 #a63f00,0 12px 28px rgba(255,122,0,.4);transition:transform .12s,box-shadow .12s}
+button::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.55) 50%,transparent 60%);transform:translateX(-120%);animation:shine 3.2s 1s infinite}
+@keyframes shine{40%,100%{transform:translateX(120%)}}
+button:hover{transform:translateY(-2px)}button:active{transform:translateY(5px);box-shadow:0 1px 0 #a63f00,0 4px 12px rgba(255,122,0,.4)}
+button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:3px}
+button:disabled{cursor:wait;filter:saturate(.7)}
+button.busy span{opacity:0}button.busy::before{content:"";position:absolute;left:calc(50% - 11px);top:calc(50% - 11px);width:22px;height:22px;border:3px solid rgba(42,10,61,.3);border-top-color:#2a0a3d;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#done p{color:var(--mut);margin:6px 0}#mine{display:inline-block;margin:8px 0;padding:8px 18px;border-radius:99px;background:rgba(139,61,255,.3);border:1px solid var(--p);font-size:1.25rem;color:#fff;word-break:break-word}
+#stage{position:fixed;inset:0;z-index:5;display:grid;place-items:center;opacity:0;pointer-events:none;transition:opacity .3s;background:radial-gradient(circle,rgba(82,28,135,.94),rgba(8,2,14,.97))}
+#stage.on{opacity:1;pointer-events:auto}
+#pk2{width:min(58vw,250px)}#pk2 svg{display:block;filter:drop-shadow(0 0 45px #ff7a00)}
+#flash{position:absolute;width:320px;height:320px;border-radius:50%;opacity:0;background:radial-gradient(#fff,#ffb347 40%,transparent 70%)}
+#c{position:fixed;inset:0;z-index:10;pointer-events:none}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:14px 0}
+.big{font:400 64px/1 Creepster,cursive;color:var(--o)}small{color:var(--mut)}
+#qrbox{text-align:center;max-width:210px}#qr{background:#fff;padding:10px;border-radius:14px;display:inline-block;line-height:0}#qrbox small{display:block;margin-top:6px;font-size:.7rem;word-break:break-all}
+input[type=range]{width:100%;accent-color:var(--o)}
+ol{list-style:none;margin:18px 0 6px;padding:0;display:grid;gap:14px}
+li{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center}
+li b{font-size:1.4rem;text-align:center;font-weight:400}li small{display:block;font-size:.8rem}
+li i{display:block;height:9px;margin-top:6px;border-radius:9px;background:linear-gradient(90deg,var(--p),var(--o));width:var(--w);transform-origin:left}
+li.a i{animation:grow .8s var(--d) both}@keyframes grow{from{transform:scaleX(0)}}
+li em{font-style:normal;font-size:1.5rem;color:var(--o)}
+#win{margin-top:18px;padding:18px;text-align:center;border-radius:20px;border:2px dashed var(--o);background:rgba(255,122,0,.1);animation:rise .6s both}
+#wn{font:400 clamp(34px,9vw,52px)/1 Creepster,cursive;color:#fff;text-shadow:0 0 24px var(--o);margin-top:4px;word-break:break-word}
+@media (prefers-reduced-motion:reduce){.bat,h1,#logo,#mini,button::after{animation:none}}
+</style></head><body>
+<div id="bats"></div>
+
+<main id="vote" class="card">
+  <div id="logo"></div>
+  <h1>Costume<br>Contest</h1>
+  <div id="form">
+    <p class="sub">Who had the best outfit tonight?<br>Type what you saw. One vote per phone.</p>
+    <label for="n">Best outfit you spotted</label>
+    <input id="n" type="text" maxlength="40" autocomplete="off" autocapitalize="words" enterkeyhint="send" placeholder="e.g. Jack Skellington">
+    <div class="meta"><span id="err" role="alert"></span><span id="cnt">0/40</span></div>
+    <button id="go"><span>Cast my vote</span></button>
+  </div>
+  <div id="done" hidden>
+    <div id="mini" title="Tap for more confetti"></div>
+    <p>Vote locked in. You picked</p>
+    <div id="mine"></div>
+    <p>Tap the pumpkin for more confetti.<br>The host will reveal the winner soon.</p>
+  </div>
+</main>
+
+<section id="host" class="card wide" hidden>
+  <h1 class="sm">Host Panel</h1>
+  <div class="top">
+    <div><div class="big" id="tot">0</div><small>votes in</small></div>
+    <div id="qrbox"><div id="qr"></div><small id="url"></small></div>
+  </div>
+  <label for="k">Name matching: looser to stricter</label>
+  <input id="k" type="range" min=".6" max=".98" step=".01" value=".82">
+  <ol id="rows"></ol>
+  <button id="rev"><span>Reveal the winner</span></button>
+  <div id="win" hidden><small>Best costume of the night</small><div id="wn"></div></div>
+</section>
+
+<div id="stage"><div id="flash"></div><div id="pk2"></div></div>
+<canvas id="c"></canvas>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const CFG={apiKey:"YOUR_API_KEY",authDomain:"YOUR_PROJECT.firebaseapp.com",projectId:"YOUR_PROJECT_ID",appId:"YOUR_APP_ID"};
+const demo=CFG.apiKey==="YOUR_API_KEY";
+if(location.search.includes("reset"))localStorage.clear();
+/* ---------- one vote per device ----------
+   Layer 1: random device ID kept in localStorage AND a cookie.
+   Layer 2: hardware/browser fingerprint hash, so a private tab or cleared site data still maps to the same phone.
+   The vote and device records are written in ONE atomic batch and Firestore only allows creating them once,
+   so a repeat from either layer is rejected by the server, not just by this page. */
+const STRICT=true; // true: also block a phone that looks identical (same model + OS). false: only the same browser
+const ck=n=>document.cookie.match("(^|; )"+n+"=([^;]*)")?.[2];
+const did=localStorage.did||ck("did")||(crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now());
+localStorage.did=did;document.cookie="did="+did+";max-age=31536000;path=/;samesite=lax";
+const h53=(s,k=0)=>{let a=0xdeadbeef^k,b=0x41c6ce57^k;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^a>>>16,2246822507)^Math.imul(b^b>>>13,3266489909);b=Math.imul(b^b>>>16,2246822507)^Math.imul(a^a>>>13,3266489909);return(4294967296*(2097151&b)+(a>>>0)).toString(36)};
+function fpHash(){let g="",cn="";try{const c=document.createElement("canvas");c.width=220;c.height=40;const x=c.getContext("2d");x.textBaseline="top";x.font="16px Arial";x.fillStyle="#f60";x.fillRect(4,4,80,24);x.fillStyle="#069";x.fillText("Costume🎃Wheel",6,8);x.fillStyle="rgba(139,61,255,.6)";x.fillText("Costume🎃Wheel",8,12);cn=c.toDataURL();
+  const gl=document.createElement("canvas").getContext("webgl"),e=gl.getExtension("WEBGL_debug_renderer_info");g=gl.getParameter(e?e.UNMASKED_RENDERER_WEBGL:gl.RENDERER)+gl.getParameter(gl.MAX_TEXTURE_SIZE)}catch(_){}
+  const s=[Math.min(screen.width,screen.height),Math.max(screen.width,screen.height),devicePixelRatio,screen.colorDepth,navigator.hardwareConcurrency,navigator.deviceMemory,navigator.maxTouchPoints,navigator.platform,navigator.language,Intl.DateTimeFormat().resolvedOptions().timeZone,g,cn].join("|");
+  return"f"+h53(s)+h53(s,7)}
+const fp=fpHash(),vid=STRICT?fp:did;
+const PK=`<svg viewBox="0 0 200 180" aria-hidden="true"><path d="M96 42c-2-14 6-28 22-34l4 10c-10 4-14 12-12 26z" fill="#3f8a24"/><ellipse cx="52" cy="104" rx="44" ry="64" fill="#c9500a"/><ellipse cx="148" cy="104" rx="44" ry="64" fill="#c9500a"/><ellipse cx="76" cy="104" rx="42" ry="68" fill="#ec6410"/><ellipse cx="124" cy="104" rx="42" ry="68" fill="#ec6410"/><ellipse cx="100" cy="104" rx="36" ry="70" fill="#ff8a1f"/><path d="M60 90l16-24 16 24zM108 90l16-24 16 24zM62 118l10 8 8-10 10 12 10-10 10 10 10-12 8 10 10-8Q100 162 62 118z" fill="#ffe27a"/></svg>`;
+$("logo").innerHTML=$("pk2").innerHTML=$("mini").innerHTML=PK;
+$("bats").innerHTML=[0,1,2].map(i=>`<i class="bat" style="--y:${8+i*17}vh;--s:${22+i*8}px;--d:${16+i*7}s;--dl:${i*5}s">🦇</i>`).join("");
+
+/* ---------- backend: Firestore, or local demo ---------- */
+const SEED="Barbie|barbie|Margot Robbie Barbie|Jack Skelington|Jack Skellington|jack skellington pumpkin king|Spider-Man|spiderman|Spider Man|Pirate|pirat|Wednesday Addams|wednesday adams|Hot dog|Dracula".split("|");
+let B;const backend=()=>B||(B=(async()=>{
+  if(demo){const L=()=>JSON.parse(localStorage.votes||"[]");
+    return{add:async n=>{localStorage.votes=JSON.stringify([...L(),n])},watch:cb=>cb([...SEED,...L()])}}
+  const A=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+  const F=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const db=F.getFirestore(A.initializeApp(CFG));
+  return{add:n=>{const b=F.writeBatch(db);b.set(F.doc(db,"votes",vid),{name:n,t:F.serverTimestamp()});STRICT&&b.set(F.doc(db,"devices",did),{t:F.serverTimestamp()});return b.commit()},
+         chk:async()=>(await F.getDoc(F.doc(db,"votes",vid))).data()?.name,
+         watch:cb=>F.onSnapshot(F.collection(db,"votes"),s=>cb(s.docs.map(d=>d.data().name)))}
+})());
+
+/* ---------- confetti: purple, white, black, orange ---------- */
+const cv=$("c"),cx=cv.getContext("2d"),COL=["#8b3dff","#ffffff","#111111","#ff7a00"];let P=[],raf=0,W,H,dpr;
+function size(){dpr=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr}size();addEventListener("resize",size);
+function burst(x,y,n=200){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=5+Math.random()*15;
+  P.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-7,w:7+Math.random()*9,h:5+Math.random()*6,r:Math.random()*6.3,vr:(Math.random()-.5)*.45,ph:Math.random()*6.3,c:COL[i%4],life:0})}
+  raf||(raf=requestAnimationFrame(tick))}
+function tick(){cx.setTransform(dpr,0,0,dpr,0,0);cx.clearRect(0,0,W,H);
+  P=P.filter(p=>p.y<H+30&&p.life<320);
+  for(const p of P){p.vx*=.985;p.vy=p.vy*.985+.3;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;p.ph+=.22;p.life++;
+    cx.save();cx.translate(p.x,p.y);cx.rotate(p.r);cx.scale(1,Math.cos(p.ph));cx.fillStyle=p.c;cx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+    if(p.c==="#111111"){cx.strokeStyle="rgba(255,255,255,.6)";cx.lineWidth=1.2;cx.strokeRect(-p.w/2,-p.h/2,p.w,p.h)}cx.restore()}
+  raf=P.length?requestAnimationFrame(tick):0}
+
+/* ---------- pumpkin: spins, then explodes ---------- */
+function explode(done){const st=$("stage"),p=$("pk2");st.classList.add("on");
+  const sp=p.animate([{transform:"scale(.1) rotate(0deg)",opacity:0},{transform:"scale(1) rotate(420deg)",opacity:1,offset:.4},{transform:"scale(1.12) rotate(1080deg)"}],{duration:1500,easing:"cubic-bezier(.45,.05,.3,1)",fill:"forwards"});
+  sp.onfinish=()=>{const r=p.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,240);
+    p.animate([{transform:"scale(1.12) rotate(1080deg)",filter:"brightness(1)"},{transform:"scale(1.5) rotate(1080deg)",filter:"brightness(3)",offset:.4},{transform:"scale(2.7) rotate(1080deg)",filter:"brightness(4)",opacity:0}],{duration:420,easing:"ease-out",fill:"forwards"});
+    $("flash").animate([{opacity:.95,transform:"scale(.2)"},{opacity:0,transform:"scale(3.2)"}],{duration:650});
+    setTimeout(()=>{st.classList.remove("on");p.getAnimations().forEach(a=>a.cancel());done&&done()},1200)}}
+
+/* ---------- voting ---------- */
+const err=m=>$("err").textContent=m;
+function showDone(v){$("form").hidden=true;$("done").hidden=false;$("mine").textContent=v}
+if(localStorage.voted)showDone(localStorage.voted);
+else if(location.hash!=="#host")backend().then(b=>b.chk?.()).then(n=>{if(n){localStorage.voted=n;showDone(n)}}).catch(()=>{});
+$("n").oninput=()=>{$("cnt").textContent=$("n").value.length+"/40";err("")};
+$("n").onkeydown=e=>e.key==="Enter"&&$("go").click();
+$("mini").onclick=e=>{const r=e.currentTarget.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,140)};
+$("go").onclick=async()=>{const g=$("go"),v=$("n").value.trim().replace(/\s+/g," ");
+  if(v.length<2)return err("Type at least 2 letters.");
+  g.disabled=true;g.classList.add("busy");
+  try{await(await backend()).add(v);localStorage.voted=v;g.classList.remove("busy");explode(()=>showDone(v))}
+  catch(e){g.disabled=false;g.classList.remove("busy");
+    err(/permission/.test(e.code||e.message)?"This device has already voted. One vote each!":"Vote didn't send. Check your signal and try again.")}};
+
+/* ---------- fuzzy grouping of typed names ---------- */
+const STOP=new Set("the a an of in as and costume outfit dressed with is".split(" "));
+function lev(a,b){const m=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=m[0];m[0]=i;for(let j=1;j<=b.length;j++){const t=m[j];m[j]=Math.min(m[j]+1,m[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return m[b.length]}
+const sim=(a,b)=>a===b?1:1-lev(a,b)/Math.max(a.length,b.length);
+const tsim=(a,b)=>a===b?1:(Math.min(a.length,b.length)>3&&(a.startsWith(b)||b.startsWith(a)))?.92:sim(a,b);
+const keyOf=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim()||s.toLowerCase();
+const tokens=k=>{const t=k.split(" ").filter(w=>w&&!STOP.has(w)).map(w=>w.length>3?w.replace(/s$/,""):w);return t.length?t:[k.replace(/ /g,"")]};
+function score(A,B){const j=sim(A.join(""),B.join("")),[S,L]=A.length<=B.length?[A,B]:[B,A];
+  const c=S.reduce((s,x)=>s+Math.max(...L.map(y=>tsim(x,y))),0)/S.length;
+  return Math.max(j,c*(S.length===L.length?1:.97))}
+function cluster(raw,t){const m=new Map();
+  raw.forEach(s=>{const k=keyOf(s),e=m.get(k)||{k,n:0,o:{}};e.n++;e.o[s]=(e.o[s]||0)+1;m.set(k,e)});
+  const items=[...m.values()].map(e=>({n:e.n,name:Object.entries(e.o).sort((a,b)=>b[1]-a[1])[0][0],tk:tokens(e.k),k:e.k})).sort((a,b)=>b.n-a.n||a.k.length-b.k.length);
+  const out=[];
+  for(const it of items){let best=null,bs=0;
+    for(const c of out){const s=score(it.tk,c.tk);if(s>bs){bs=s;best=c}}
+    if(best&&bs>=t){best.n+=it.n;best.v.push(it.name)}else out.push({name:it.name,n:it.n,tk:it.tk,v:[it.name]})}
+  return out.sort((a,b)=>b.n-a.n)}
+
+/* ---------- host panel ---------- */
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let raw=[],win=[],first=true;
+function draw(){const cl=cluster(raw,+$("k").value),max=cl[0]?.n||1;
+  $("tot").textContent=raw.length;win=cl.filter(c=>c.n===max).map(c=>c.name);
+  $("rows").innerHTML=cl.length?cl.map((c,i)=>`<li class="${first?"a":""}" style="--w:${c.n/max*100}%;--d:${i*70}ms"><b>${["🥇","🥈","🥉"][i]||i+1}</b><div><strong>${esc(c.name)}</strong>${c.v.length>1?`<small>also typed: ${c.v.slice(1).map(esc).join(", ")}</small>`:""}<i></i></div><em>${c.n}</em></li>`).join(""):"<small>No votes yet. Share the QR code.</small>";
+  first=false}
+if(location.hash==="#host"){
+  $("vote").hidden=true;$("host").hidden=false;
+  const url=location.href.split("#")[0];$("url").textContent=url;
+  window.QRCode&&new QRCode($("qr"),{text:url,width:190,height:190,colorDark:"#12051c",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.H});
+  backend().then(b=>b.watch(v=>{raw=v;draw()}));
+  $("k").oninput=draw;
+  $("rev").onclick=()=>{$("win").hidden=false;$("wn").textContent=win.join(" & ")||"No votes yet";
+    for(let i=0;i<5;i++)setTimeout(()=>burst(W*(.12+.19*i),H*.3,130),i*230)};
+}
+addEventListener("hashchange",()=>location.reload());
+</script>
+</body></html>
