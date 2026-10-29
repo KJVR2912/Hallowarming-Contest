@@ -219,6 +219,7 @@ if(location.hash==="#host"){
   $("rev").onclick=()=>{$("win").hidden=false;$("wn").textContent=win.join(" & ")||"No votes yet";
     for(let i=0;i<5;i++)setTimeout(()=>burst(W*(.12+.19*i),H*.3,130),i*230)};
 }
+addEventListener("keydown",e=>{if(e.ctrlKey&&e.shiftKey&&e.code==="Digit3"){e.preventDefault();location.href="screen.html"}});
 addEventListener("hashchange",()=>location.reload());
 </script>
 </body></html>

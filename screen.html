@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 BIG SCREEN: open https://YOU.github.io/REPO/screen.html on the projector, press F (or F11) for fullscreen,
-click once anywhere to unlock sound, then press Ctrl+Alt to spin. Space also works. Esc closes the winner card.
+click once anywhere to unlock sound, then press Ctrl+Alt to spin. Space also works. Esc closes the winner card. Ctrl+Shift+3 jumps to the host/QR page (and back).
 Paste the SAME Firebase CFG you used in index.html. Until then it runs in DEMO mode (same sample votes).
 -->
 <html lang="en"><head>
@@ -158,7 +158,8 @@ function land(){st="done";document.body.classList.add("done");sfxLand();
     const r=setInterval(()=>{rain(8);if($("win").hidden)clearInterval(r)},120);setTimeout(()=>clearInterval(r),12000);
     cannon(W*.2,H*.6,-1.4,100);cannon(W*.8,H*.6,-1.75,100)},1600)}
 addEventListener("keydown",e=>{if(e.repeat)return;
-  if(e.ctrlKey&&e.altKey||e.code==="Space"){e.preventDefault();start()}
+  if(e.ctrlKey&&e.shiftKey&&e.code==="Digit3"){e.preventDefault();location.href="index.html#host"}
+  else if(e.ctrlKey&&e.altKey||e.code==="Space"){e.preventDefault();start()}
   else if(e.key==="Escape")$("win").hidden=true;
   else if(e.key.toLowerCase()==="f")document.documentElement.requestFullscreen?.()});
 
